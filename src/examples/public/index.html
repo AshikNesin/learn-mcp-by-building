@@ -299,16 +299,46 @@
           // Log connection details
           this._log('info', `Connecting to ${url} with session ID ${this.sessionId}`);
           
-          // Create EventSource
+          // Create EventSource with error handling
           this.eventSource = new EventSource(url.toString());
+          
+          // Add timeout to detect stalled connections
+          let connectionTimeout = setTimeout(() => {
+            this._log('error', 'Connection timed out after 30 seconds with no events');
+            this.disconnect();
+            
+            // Auto-reconnect after a short delay
+            setTimeout(() => {
+              if (!this.connected) {
+                this._log('info', 'Attempting to reconnect...');
+                this.connect();
+              }
+            }, 2000);
+          }, 30000);
           
           // Setup event handlers
           this.eventSource.onopen = () => {
             this._log('info', 'EventSource connection opened, waiting for endpoint event...');
+            
+            // Send a heartbeat request immediately to test the connection
+            fetch(url.toString(), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 'heartbeat',
+                method: 'heartbeat'
+              })
+            }).catch(err => {
+              this._log('info', `Heartbeat request sent (${err ? 'failed' : 'success'})`);
+            });
           };
           
           // Listen for endpoint event (MCP protocol)
           this.eventSource.addEventListener('endpoint', async (event) => {
+            clearTimeout(connectionTimeout); // Clear timeout on successful event
             const endpointUrl = event.data;
             this._log('info', `Received endpoint URL: ${endpointUrl}`);
             
@@ -324,8 +354,13 @@
             }
           });
           
-          // Listen for message event (all JSON-RPC responses come through here)
+          // Listen for keepalive messages
           this.eventSource.addEventListener('message', (event) => {
+            if (event.data.startsWith(':keepalive')) {
+              // Got a keepalive message, connection is still alive
+              return;
+            }
+            
             try {
               const data = JSON.parse(event.data);
               this._log('response', `Received: ${JSON.stringify(data)}`);
@@ -351,17 +386,20 @@
             }
           });
           
-          // This handles the default event (no event name)
-          this.eventSource.onmessage = (event) => {
-            this._log('info', `Received unnamed event: ${event.data}`);
-          };
-          
           this.eventSource.onerror = (error) => {
             this._log('error', `EventSource error: ${error.message || 'Connection failed'}`);
             
             if (this.eventSource.readyState === EventSource.CLOSED) {
               this.connected = false;
               if (this.ondisconnect) this.ondisconnect();
+              
+              // Auto-reconnect after a short delay
+              setTimeout(() => {
+                if (!this.connected) {
+                  this._log('info', 'Attempting to reconnect after error...');
+                  this.connect();
+                }
+              }, 3000);
             }
             
             if (this.onerror) this.onerror(error);
