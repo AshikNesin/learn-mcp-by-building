@@ -12,7 +12,7 @@
         "transport": "stdio"
       },
       "sse-server": {
-        "url": "http://localhost:5442/sse",
+        "url": "https://mcp-sse.dev.nesin.io/sse",
         "transport": "sse"
       }
     }
