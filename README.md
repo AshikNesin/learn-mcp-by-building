@@ -111,4 +111,3 @@ The implementation demonstrates key MCP features:
 
 - [MCP Protocol Specification](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
 - [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
-- [MCP GitHub Repository](https://github.com/modelcontextprotocol/mcp)
