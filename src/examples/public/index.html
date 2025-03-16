@@ -246,7 +246,7 @@
       constructor(options = {}) {
         this.serverUrl = options.serverUrl || window.location.origin;
         this.endpoint = options.endpoint || '/sse';
-        this.sessionId = options.sessionId || crypto.randomUUID();
+        this.sessionId = options.sessionId || this._generateSessionId();
         this.eventSource = null;
         this.connected = false;
         this.requestId = 0;
@@ -255,6 +255,35 @@
         this.ondisconnect = null;
         this.onerror = null;
         this.onnotification = null;
+      }
+
+      // Generate a simple session ID
+      _generateSessionId() {
+        // UUID v4 implementation using crypto.getRandomValues (better browser support)
+        const getRandomValues = (array) => {
+          // Use window.crypto.getRandomValues if available
+          if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+            return window.crypto.getRandomValues(array);
+          }
+          
+          // Fallback using Math.random (less secure but works everywhere)
+          for (let i = 0; i < array.length; i++) {
+            array[i] = Math.floor(Math.random() * 256);
+          }
+          return array;
+        };
+        
+        // Create array for UUID bytes
+        const bytes = new Uint8Array(16);
+        getRandomValues(bytes);
+        
+        // Set UUID version (4) and variant bits
+        bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+        bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+        
+        // Convert to hex string with dashes
+        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
       }
 
       async connect() {
