@@ -33,6 +33,9 @@ const server = new McpServer(
   }
 );
 
+// Track active requests by ID
+const activeRequests = new Map();
+
 // Handler for tools/list method
 server.setRequestHandler('tools/list', () => {
   return {
@@ -48,7 +51,7 @@ server.setRequestHandler('tools/call', async (params) => {
     throw new Error(`Tool ${name} not found`);
   }
   
-  // Use the shared calculator tool handler
+  // Use the shared calculator tool handler and return raw result
   return handleCalculatorTool(args);
 });
 
@@ -94,6 +97,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     cors: argv.cors
   });
   
+  // Set up connection handling
+  transport.app.on('connection', (socket) => {
+    console.error('New SSE connection established');
+    
+    socket.on('close', () => {
+      console.error('SSE connection closed');
+      // Clean up any pending requests for this socket
+      for (const [id, request] of activeRequests.entries()) {
+        if (request.sessionId === socket.id) {
+          activeRequests.delete(id);
+        }
+      }
+    });
+  });
+  
   // Serve static files if enabled
   if (argv.serveStatic) {
     const publicPath = path.join(__dirname, 'public');
@@ -107,66 +125,74 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   
   // Handle messages from clients
   transport.onmessage = (message, sessionId) => {
-    console.error(`Received message from session ${sessionId}:`, message);
-    
-    // Ensure sessionId is properly attached
-    if (!message._sessionId && sessionId) {
-      message._sessionId = sessionId;
+    if (!message.id) {
+      console.error('Received message without ID:', message);
+      return;
     }
+
+    console.error(`Processing message ${message.id} from session ${sessionId}`);
+
+    // Track the request with timestamp
+    activeRequests.set(message.id, { 
+      sessionId, 
+      message,
+      timestamp: Date.now()
+    });
     
-    // Log for debugging
-    console.error(`Processing message with _sessionId: ${message._sessionId}, method: ${message.method}`);
-    
-    // Special handling for initialize requests
-    if (message.method === 'initialize') {
-      console.error('Received initialize request, setting up session...');
+    // Clean up old requests (older than 5 minutes)
+    const now = Date.now();
+    for (const [id, request] of activeRequests.entries()) {
+      if (now - request.timestamp > 5 * 60 * 1000) {
+        activeRequests.delete(id);
+      }
     }
     
     // Process with the MCP server
     server._onMessage(message);
   };
   
-  // Custom handling for responses to ensure they go to the right client
+  // Custom handling for responses
   const originalHandleRequest = server._handleRequest.bind(server);
   server._handleRequest = async function(request) {
-    // Extract the session ID from the request and store it
-    const sessionId = request._sessionId;
-    console.error(`Handling request with session ID: ${sessionId}`, request);
-    
     try {
-      // Process the request
       const result = await originalHandleRequest(request);
       
-      // Send response to the client
       if (result && request.id) {
-        console.error(`Sending response for request ${request.id} to session ${sessionId}`);
-        
+        const activeRequest = activeRequests.get(request.id);
+        if (!activeRequest) {
+          console.error(`No active request found for ID ${request.id}`);
+          return null;
+        }
+
+        // Send raw result without additional formatting
         const response = {
           jsonrpc: '2.0',
           id: request.id,
           result
         };
-        
-        await transport.send(response, sessionId);
-        return null; // Prevent double sending
+
+        await transport.send(response, activeRequest.sessionId);
+        activeRequests.delete(request.id);
+        return null;
       }
       
       return result;
     } catch (error) {
-      // Handle errors
-      console.error(`Error handling request ${request.id}:`, error);
-      
       if (request.id) {
-        const errorResponse = {
-          jsonrpc: '2.0',
-          id: request.id,
-          error: {
-            code: -32603,
-            message: error.message || 'Internal error'
-          }
-        };
-        
-        await transport.send(errorResponse, sessionId);
+        const activeRequest = activeRequests.get(request.id);
+        if (activeRequest) {
+          const errorResponse = {
+            jsonrpc: '2.0',
+            id: request.id,
+            error: {
+              code: -32603,
+              message: error.message || 'Internal error'
+            }
+          };
+          
+          await transport.send(errorResponse, activeRequest.sessionId);
+          activeRequests.delete(request.id);
+        }
       }
       
       return null;
