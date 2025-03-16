@@ -8,8 +8,6 @@
  * See: https://spec.modelcontextprotocol.io/specification/2024-11-05/
  */
 
-import { StdioTransport } from './stdio-transport.js';
-
 // Protocol and version constants
 const JSONRPC_VERSION = '2.0';  // MCP uses JSON-RPC 2.0 as its base protocol
 const LATEST_PROTOCOL_VERSION = '2024-11-05';  // Current MCP protocol version
@@ -169,21 +167,26 @@ class McpServer {
   // Handle incoming requests from the client
   async _handleRequest(request) {
     const { id, method, params } = request;
+    const sessionId = request._sessionId; // Extract the session ID for debugging
+    console.error(`_handleRequest: method=${method}, id=${id}, sessionId=${sessionId}`);
+    
     const handler = this.requestHandlers.get(method);
     
     // Method not found - required by JSON-RPC spec
     if (!handler) {
-      return this._sendError(id, -32601, `Method not found: ${method}`);
+      return this._sendError(id, -32601, `Method not found: ${method}`, null, sessionId);
     }
     
     try {
       // Execute handler and send successful result
       const result = await handler(params || {});
-      await this._sendResponse(id, result);
+      await this._sendResponse(id, result, sessionId);
+      return result;
     } catch (error) {
       // Handle errors during execution
       console.error(`Error handling request ${method}:`, error);
-      await this._sendError(id, -32603, error.message || 'Internal error');
+      await this._sendError(id, -32603, error.message || 'Internal error', null, sessionId);
+      throw error; // Re-throw to allow custom error handling
     }
   }
 
@@ -211,21 +214,25 @@ class McpServer {
   }
 
   // Send a successful response
-  async _sendResponse(id, result) {
+  async _sendResponse(id, result, sessionId) {
+    console.error(`_sendResponse: id=${id}, sessionId=${sessionId}`);
+    // If a session ID is provided, it can be used by transport implementations
+    // that support routing responses to specific clients
     await this.transport.send({
       jsonrpc: JSONRPC_VERSION,
       id,
       result
-    });
+    }, sessionId);
   }
 
   // Send an error response following JSON-RPC error codes
-  async _sendError(id, code, message, data) {
+  async _sendError(id, code, message, data, sessionId) {
+    console.error(`_sendError: id=${id}, code=${code}, sessionId=${sessionId}`);
     await this.transport.send({
       jsonrpc: JSONRPC_VERSION,
       id,
       error: { code, message, data }
-    });
+    }, sessionId);
   }
 
   // Handle initialization request from client
@@ -241,36 +248,23 @@ class McpServer {
       ? requestedVersion
       : LATEST_PROTOCOL_VERSION;
     
-    // Return server capabilities and info
     return {
+      serverInfo: this.serverInfo,
       protocolVersion,
       capabilities: this.capabilities,
-      serverInfo: this.serverInfo,
-      ...(this.options.instructions && { instructions: this.options.instructions })
+      instructions: this.options.instructions
     };
   }
 
-  // Utility methods to access client info
+  // Access client capabilities (useful for conditional features)
   getClientCapabilities() {
     return this._clientCapabilities;
   }
 
+  // Access client version information
   getClientVersion() {
     return this._clientVersion;
   }
 }
 
-// Export classes
-export { McpServer, StdioTransport };
-
-// When run directly, start a basic server
-if (import.meta.url === `file://${process.argv[1]}`) {
-  console.error('Starting MCP server...');
-  
-  const server = new McpServer();
-  const transport = new StdioTransport();
-  
-  server.connect(transport)
-    .then(() => console.error('Server ready!'))
-    .catch(error => console.error('Failed to start server:', error));
-} 
+export { McpServer, JSONRPC_VERSION, LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS }; 

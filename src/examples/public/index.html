@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP HTTP+SSE Client</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f8f9fa;
+      color: #333;
+    }
+    
+    header {
+      background-color: #4285f4;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      margin: 0;
+      font-weight: 500;
+    }
+    
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 1400px;
+      margin: 20px auto;
+      gap: 20px;
+      padding: 0 20px;
+    }
+    
+    .left-panel, .right-panel {
+      flex: 1;
+      min-width: 350px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .card-header h2 {
+      margin: 0;
+      font-weight: 500;
+      color: #424242;
+    }
+    
+    .connection-status {
+      padding: 8px 12px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      font-weight: 500;
+      display: inline-block;
+    }
+    
+    .connected {
+      background-color: #e6f7e6;
+      color: #2e7d32;
+    }
+    
+    .disconnected {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    
+    button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #3367d6;
+    }
+    
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    select, input {
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #555;
+    }
+    
+    .result {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      padding: 15px;
+      background: #f1f3f4;
+      border-radius: 4px;
+      min-height: 60px;
+      overflow-y: auto;
+    }
+    
+    .log-container {
+      height: 500px;
+      background: #1e1e1e;
+      color: #dcdcdc;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-y: auto;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 13px;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      line-height: 1.5;
+      border-bottom: 1px solid #333;
+      padding-bottom: 5px;
+    }
+    
+    .info {
+      color: #58b7ff;
+    }
+    
+    .error {
+      color: #ff6b6b;
+    }
+    
+    .response {
+      color: #6bff9f;
+    }
+    
+    .session-info {
+      font-size: 0.85em;
+      color: #777;
+      margin-top: 5px;
+      font-family: monospace;
+    }
+    
+    .btn-container {
+      display: flex;
+      gap: 10px;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      
+      .left-panel, .right-panel {
+        flex: 1 1 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCP HTTP+SSE Client</h1>
+  </header>
+
+  <div class="container">
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-header">
+          <h2>Connection</h2>
+          <div class="connection-status disconnected" id="connectionStatus">Disconnected</div>
+        </div>
+        <div class="session-info" id="sessionInfo">No session</div>
+        <div class="btn-container">
+          <button id="connectButton">Connect</button>
+          <button id="disconnectButton" disabled>Disconnect</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Calculator</h2>
+        </div>
+        <div class="form-group">
+          <label for="operation">Operation:</label>
+          <select id="operation">
+            <option value="add">Add</option>
+            <option value="subtract">Subtract</option>
+            <option value="multiply">Multiply</option>
+            <option value="divide">Divide</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="valueA">Value A:</label>
+          <input type="number" id="valueA" value="10">
+        </div>
+        <div class="form-group">
+          <label for="valueB">Value B:</label>
+          <input type="number" id="valueB" value="5">
+        </div>
+        <button id="calculateButton" disabled>Calculate</button>
+        <div class="result" id="result">Results will appear here</div>
+      </div>
+    </div>
+    
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-header">
+          <h2>Logs</h2>
+          <button id="clearLogs">Clear</button>
+        </div>
+        <div class="log-container" id="logs"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class McpHttpSseClient {
+      constructor(options = {}) {
+        this.serverUrl = options.serverUrl || 'http://localhost:5000';
+        this.endpoint = options.endpoint || '/sse';
+        this.sessionId = options.sessionId || crypto.randomUUID();
+        this.eventSource = null;
+        this.connected = false;
+        this.requestId = 0;
+        this.responseHandlers = new Map();
+        this.onconnect = null;
+        this.ondisconnect = null;
+        this.onerror = null;
+        this.onnotification = null;
+      }
+
+      async connect() {
+        if (this.eventSource) {
+          return;
+        }
+
+        try {
+          // Add session ID to URL as query parameter
+          const url = new URL(this.serverUrl + this.endpoint);
+          url.searchParams.append('sessionId', this.sessionId);
+          
+          // Log connection details
+          this._log('info', `Connecting to ${url} with session ID ${this.sessionId}`);
+          
+          // Create EventSource
+          this.eventSource = new EventSource(url.toString());
+          
+          // Setup event handlers
+          this.eventSource.onopen = () => {
+            this._log('info', 'EventSource connection opened, waiting for endpoint event...');
+          };
+          
+          // Listen for endpoint event (MCP protocol)
+          this.eventSource.addEventListener('endpoint', async (event) => {
+            const endpointUrl = event.data;
+            this._log('info', `Received endpoint URL: ${endpointUrl}`);
+            
+            // Now send the initialize request per MCP protocol
+            try {
+              const result = await this.sendInitialize();
+              this.connected = true;
+              this._log('info', `Connection initialized successfully, protocol version: ${result.protocolVersion}`);
+              if (this.onconnect) this.onconnect();
+            } catch (error) {
+              this._log('error', `Failed to initialize: ${error.message}`);
+              this.disconnect();
+            }
+          });
+          
+          // Listen for message event (all JSON-RPC responses come through here)
+          this.eventSource.addEventListener('message', (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              this._log('response', `Received: ${JSON.stringify(data)}`);
+              
+              // Process response
+              if (data.id) {
+                const handler = this.responseHandlers.get(data.id);
+                if (handler) {
+                  this.responseHandlers.delete(data.id);
+                  if (data.error) {
+                    handler.reject(data.error);
+                  } else {
+                    handler.resolve(data.result);
+                  }
+                }
+              } else if (data.method && this.onnotification) {
+                // Handle server-side notification
+                this.onnotification(data);
+              }
+            } catch (err) {
+              this._log('error', `Error processing message: ${err.message}`);
+              console.error('Error processing event:', err, event.data);
+            }
+          });
+          
+          // This handles the default event (no event name)
+          this.eventSource.onmessage = (event) => {
+            this._log('info', `Received unnamed event: ${event.data}`);
+          };
+          
+          this.eventSource.onerror = (error) => {
+            this._log('error', `EventSource error: ${error.message || 'Connection failed'}`);
+            
+            if (this.eventSource.readyState === EventSource.CLOSED) {
+              this.connected = false;
+              if (this.ondisconnect) this.ondisconnect();
+            }
+            
+            if (this.onerror) this.onerror(error);
+          };
+        } catch (error) {
+          this._log('error', `Connection error: ${error.message}`);
+          throw error;
+        }
+      }
+
+      // Initialize connection according to MCP protocol
+      async sendInitialize() {
+        if (!this.eventSource) {
+          throw new Error('EventSource not connected');
+        }
+        
+        // Don't use the regular send method since we're not connected yet
+        const id = ++this.requestId;
+        const request = {
+          jsonrpc: '2.0',
+          id,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {
+                listChanged: true
+              }
+            },
+            clientInfo: {
+              name: 'mcp-browser-client',
+              version: '0.1.0'
+            }
+          }
+        };
+        
+        // Prepare URL for sending the request
+        const url = new URL(this.serverUrl + this.endpoint);
+        url.searchParams.append('sessionId', this.sessionId);
+        
+        this._log('info', `Sending initialize request to ${url} (ID: ${id})`);
+        
+        // Create a promise that will be resolved when the response arrives
+        const responsePromise = new Promise((resolve, reject) => {
+          // Set timeout for response
+          const timeout = setTimeout(() => {
+            this.responseHandlers.delete(id);
+            reject(new Error('Initialize request timed out after 30 seconds'));
+          }, 30000);
+          
+          this.responseHandlers.set(id, { 
+            resolve: (result) => {
+              clearTimeout(timeout);
+              resolve(result);
+            }, 
+            reject: (error) => {
+              clearTimeout(timeout);
+              reject(error instanceof Error ? error : new Error(error.message || 'Unknown error'));
+            }
+          });
+        });
+        
+        try {
+          // Send the request via HTTP POST
+          const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(request)
+          });
+          
+          if (!response.ok) {
+            this._log('error', `HTTP error during initialization: ${response.status} ${response.statusText}`);
+            // Try to parse error response
+            try {
+              const errorData = await response.json();
+              throw new Error(errorData.error?.message || `HTTP error: ${response.status}`);
+            } catch (parseError) {
+              throw new Error(`HTTP error: ${response.status}`);
+            }
+          }
+          
+          // Log immediate response
+          this._log('info', `Initialize request accepted (ID: ${id})`);
+          
+          // Wait for the response via SSE
+          return await responsePromise;
+        } catch (error) {
+          this._log('error', `Initialize request error: ${error.message}`);
+          this.responseHandlers.delete(id);
+          throw error;
+        }
+      }
+
+      disconnect() {
+        if (this.eventSource) {
+          this._log('info', 'Disconnecting...');
+          this.eventSource.close();
+          this.eventSource = null;
+          this.connected = false;
+          if (this.ondisconnect) this.ondisconnect();
+        }
+      }
+
+      async send(method, params) {
+        if (!this.connected) {
+          throw new Error('Not connected');
+        }
+        
+        const id = ++this.requestId;
+        const request = {
+          jsonrpc: '2.0',
+          id,
+          method,
+          params
+        };
+        
+        // Prepare URL for sending the request
+        const url = new URL(this.serverUrl + this.endpoint);
+        url.searchParams.append('sessionId', this.sessionId);
+        
+        this._log('info', `Sending ${method} to ${url} (ID: ${id})`);
+        
+        // Create a promise that will be resolved when the response arrives
+        const responsePromise = new Promise((resolve, reject) => {
+          // Set timeout for response
+          const timeout = setTimeout(() => {
+            this.responseHandlers.delete(id);
+            reject(new Error('Request timed out after 30 seconds'));
+          }, 30000);
+          
+          this.responseHandlers.set(id, { 
+            resolve: (result) => {
+              clearTimeout(timeout);
+              resolve(result);
+            }, 
+            reject: (error) => {
+              clearTimeout(timeout);
+              reject(error instanceof Error ? error : new Error(error.message || 'Unknown error'));
+            }
+          });
+        });
+        
+        try {
+          // Send the request via HTTP POST
+          const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(request)
+          });
+          
+          if (!response.ok) {
+            this._log('error', `HTTP error: ${response.status} ${response.statusText}`);
+            // Try to parse error response
+            try {
+              const errorData = await response.json();
+              throw new Error(errorData.error?.message || `HTTP error: ${response.status}`);
+            } catch (parseError) {
+              throw new Error(`HTTP error: ${response.status}`);
+            }
+          }
+          
+          // Log immediate response
+          this._log('info', `Request accepted (ID: ${id})`);
+          
+          // Wait for the response via SSE
+          return await responsePromise;
+        } catch (error) {
+          this._log('error', `Request error: ${error.message}`);
+          this.responseHandlers.delete(id);
+          throw error;
+        }
+      }
+
+      _log(level, message) {
+        console.log(`[${level}] ${message}`);
+      }
+    }
+
+    // Initialize UI
+    document.addEventListener('DOMContentLoaded', () => {
+      const connectionStatus = document.getElementById('connectionStatus');
+      const sessionInfo = document.getElementById('sessionInfo');
+      const connectButton = document.getElementById('connectButton');
+      const disconnectButton = document.getElementById('disconnectButton');
+      const calculateButton = document.getElementById('calculateButton');
+      const clearLogsButton = document.getElementById('clearLogs');
+      const operation = document.getElementById('operation');
+      const valueA = document.getElementById('valueA');
+      const valueB = document.getElementById('valueB');
+      const result = document.getElementById('result');
+      const logs = document.getElementById('logs');
+
+      // Create client instance
+      const client = new McpHttpSseClient();
+
+      // Override log method to display in UI
+      client._log = (level, message) => {
+        console.log(`[${level}] ${message}`);
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${level}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logs.appendChild(entry);
+        logs.scrollTop = logs.scrollHeight;
+      };
+
+      // Handle connection status changes
+      client.onconnect = async () => {
+        connectionStatus.textContent = 'Connected';
+        connectionStatus.className = 'connection-status connected';
+        sessionInfo.textContent = `Session ID: ${client.sessionId}`;
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+        
+        // Fetch tool list before enabling calculation
+        try {
+          const toolList = await client.send('tools/list');
+          if (toolList && toolList.tools && toolList.tools.some(tool => tool.name === 'calculator')) {
+            calculateButton.disabled = false;
+            client._log('info', 'Calculator tool is available');
+          } else {
+            client._log('error', 'Calculator tool not found');
+          }
+        } catch (error) {
+          client._log('error', `Failed to get tool list: ${error.message}`);
+        }
+      };
+
+      client.ondisconnect = () => {
+        connectionStatus.textContent = 'Disconnected';
+        connectionStatus.className = 'connection-status disconnected';
+        connectButton.disabled = false;
+        disconnectButton.disabled = true;
+        calculateButton.disabled = true;
+      };
+
+      client.onerror = (error) => {
+        client._log('error', `Client error: ${error.message || 'Unknown error'}`);
+      };
+
+      // Connect button
+      connectButton.addEventListener('click', async () => {
+        try {
+          connectButton.disabled = true;
+          await client.connect();
+        } catch (error) {
+          client._log('error', `Failed to connect: ${error.message}`);
+          connectButton.disabled = false;
+        }
+      });
+
+      // Disconnect button
+      disconnectButton.addEventListener('click', () => {
+        client.disconnect();
+      });
+
+      // Clear logs button
+      clearLogsButton.addEventListener('click', () => {
+        logs.innerHTML = '';
+      });
+
+      // Calculate button
+      calculateButton.addEventListener('click', async () => {
+        calculateButton.disabled = true;
+        result.textContent = 'Calculating...';
+        
+        try {
+          const response = await client.send('tools/call', {
+            name: 'calculator',
+            arguments: {
+              operation: operation.value,
+              a: parseFloat(valueA.value),
+              b: parseFloat(valueB.value)
+            }
+          });
+          
+          if (response && response.content) {
+            result.textContent = response.content.map(item => item.text).join('\n');
+          } else {
+            result.textContent = 'No result returned';
+          }
+        } catch (error) {
+          result.textContent = `Error: ${error.message || 'Unknown error'}`;
+          client._log('error', `Calculation error: ${error.message || 'Unknown error'}`);
+        } finally {
+          calculateButton.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html> 

@@ -1,21 +1,27 @@
 {
   "name": "learn-mcp-by-building",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "server": "node src/mcp-server.js",
-    "server:tools": "node src/mcp-server-with-tools.js",
-    "client": "node src/mcp-test-client.js",
-    "client:tools": "node src/mcp-test-tool-client.js",
-    "debug": "npx @modelcontextprotocol/inspector node src/mcp-server.js"
+    "server:stdio": "node src/examples/stdio-server.js",
+    "client:stdio": "node src/examples/stdio-client.js",
+    "test:stdio": "node src/examples/stdio-client.js | node src/examples/stdio-server.js",
+    "server:sse": "node src/examples/http-sse-server.js",
+    "client:sse": "node src/examples/http-sse-client.js",
+    "debug": "npx @modelcontextprotocol/inspector node src/examples/stdio-server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A modular implementation of the Model Context Protocol (MCP)",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "eventsource": "^2.0.2",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "uuid": "^9.0.1",
+    "yargs": "^17.7.2",
     "zod": "^3.24.2"
   }
 }

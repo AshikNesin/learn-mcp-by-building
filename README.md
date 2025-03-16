@@ -1,6 +1,6 @@
-# Learn Model Context Protocol by Building
+# Model Context Protocol (MCP) Implementation
 
-This repository contains a simple MCP (Model Context Protocol) server implementation built from scratch in Node.js. The purpose is to learn how the MCP protocol works internally without relying on the official SDK.
+This project implements the [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/) for building AI tools. It provides a modular framework that can be used to create MCP-compatible servers and clients.
 
 ---
 
@@ -25,9 +25,9 @@ The Model Context Protocol (MCP) is an open protocol that enables AI assistants 
 
 | Category | Features |
 |----------|----------|
-| **Protocol** | ✅ JSON-RPC 2.0 message handling<br>✅ Protocol initialization<br>✅ Capability negotiation |
+| **Core** | ✅ JSON-RPC 2.0 message handling<br>✅ Protocol initialization<br>✅ Capability negotiation |
 | **Tools** | ✅ Tool registration with JSON Schema<br>✅ Tool invocation and validation<br>✅ Standardized error handling |
-| **Transport** | ✅ STDIO support<br>🚧 SSE Support |
+| **Transport** | ✅ STDIO support<br>✅ HTTP+SSE Support |
 | **Testing** | ✅ Test clients |
 
 ---
@@ -36,12 +36,12 @@ The Model Context Protocol (MCP) is an open protocol that enables AI assistants 
 
 ```
 src/
-├── lib/
-│   └── mcp-server.js         # Core MCP implementation
-├── mcp-server-with-tools.js  # Server with calculator tool
-└── test/
-    ├── mcp-test-client.js    # Full test client
-    └── mcp-test-tool-client.js # Tool-specific tests
+├── core/           # Core MCP server implementation
+├── transports/     # Transport layer implementations (stdio, HTTP+SSE)
+├── tools/          # Tool definitions and handlers
+├── examples/       # Example servers and clients
+│   └── public/     # Static files for HTTP server
+└── index.js        # Main entry point for the library
 ```
 
 ---
@@ -50,39 +50,98 @@ src/
 
 ### Prerequisites
 
-- Node.js v18+ (for ESM support)
+- Node.js 20.x or later
+- npm or pnpm
 
-### Quick Start
+### Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/AshikNesin/learn-mcp-by-building
 cd learn-mcp-by-building
 
 # Install dependencies
+npm install
+# or
 pnpm install
-
-# Run the test client
-node src/test/mcp-test-client.js
-
-# Start the server
-node src/mcp-server-with-tools.js
 ```
 
 ---
 
-## 🔧 Implementation Details
+## 🏃‍♂️ Running the Examples
 
-### Protocol Support
+### STDIO Server and Client
 
-- **Version**: `2024-11-05`
-- **Transport**: JSON-RPC 2.0 over STDIO
-- **Methods**:
-  - `initialize` - Capability negotiation
-  - `tools/list` - Tool discovery
-  - `tools/call` - Tool execution
+Run the STDIO server:
 
-### 🧮 Calculator Tool
+```bash
+npm run server:stdio
+# or
+node src/examples/stdio-server.js
+```
+
+Test with the STDIO client:
+
+```bash
+npm run client:stdio
+# or
+node src/examples/stdio-client.js
+```
+
+Run both together to see a complete test:
+
+```bash
+npm run test:stdio
+# or
+node src/examples/stdio-client.js | node src/examples/stdio-server.js
+```
+
+### HTTP+SSE Server and Client
+
+Run the HTTP+SSE server:
+
+```bash
+npm run server:sse
+# or
+node src/examples/http-sse-server.js --port 5000
+```
+
+Available options:
+- `--port`: Port to listen on (default: 5000)
+- `--host`: Host to bind to (default: localhost)
+- `--path`: Endpoint path (default: /sse)
+- `--cors`: Enable CORS (default: true)
+- `--serve-static`: Serve static files from src/examples/public (default: true)
+
+Test with the HTTP+SSE client:
+
+```bash
+npm run client:sse
+# or
+node src/examples/http-sse-client.js --server http://localhost:5000/sse
+```
+
+Once running, you can also access the web-based client interface in your browser at http://localhost:5000:
+
+![SSE Client Interface](./media/sse-client.png)
+
+The interface provides a user-friendly way to interact with the MCP server, with a side-by-side layout showing the calculator controls and real-time logs.
+
+### 🔍 Using the MCP Inspector
+
+You can use the official MCP Inspector to debug the server:
+
+```bash
+npm run debug
+```
+
+The MCP Inspector provides a visual interface for monitoring and debugging MCP servers:
+
+![MCP Inspector](./media/mcp-inspector.png)
+
+---
+
+## 🧮 Calculator Tool
 
 <table>
 <tr>
@@ -117,12 +176,81 @@ node src/mcp-server-with-tools.js
 
 ---
 
+## 🧑‍💻 Developing with the MCP Framework
+
+### Creating a New Server
+
+```javascript
+import { McpServer } from '../core/index.js';
+import { StdioTransport } from '../transports/index.js';
+import { calculatorToolDefinition, handleCalculatorTool } from '../tools/index.js';
+
+// Create server instance
+const server = new McpServer(
+  { name: 'my-server', version: '1.0.0' },
+  { capabilities: { tools: { listChanged: true } } }
+);
+
+// Register tool handlers
+server.setRequestHandler('tools/list', () => ({ tools: [calculatorToolDefinition] }));
+server.setRequestHandler('tools/call', async (params) => {
+  if (params.name === 'calculator') {
+    return handleCalculatorTool(params.arguments);
+  }
+  throw new Error(`Tool ${params.name} not found`);
+});
+
+// Start the server
+const transport = new StdioTransport();
+server.connect(transport)
+  .then(() => console.error('Server ready!'));
+```
+
+### Creating a New Tool
+
+1. Create a new file in `src/tools/`:
+
+```javascript
+// src/tools/my-tool.js
+export const myToolDefinition = {
+  name: 'my-tool',
+  description: 'Description of my tool',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      // Define parameters
+    },
+    required: []
+  }
+};
+
+export async function handleMyTool(args) {
+  // Implement tool logic
+  return {
+    content: [
+      {
+        type: 'text',
+        text: 'Result from my tool'
+      }
+    ]
+  };
+}
+```
+
+2. Export the tool in `src/tools/index.js`:
+
+```javascript
+export * from './my-tool.js';
+```
+
+---
+
 ## 🛠️ Protocol Features
 
 - ✅ Capability negotiation
 - ✅ Tool list change notifications
 - ✅ Standardized error handling
-- ✅ JSON Schema validation
+- ✅ JSON Schema validation 
 - ✅ Structured tool results
 - ✅ Transport layer abstraction
 
@@ -133,3 +261,9 @@ node src/mcp-server-with-tools.js
 - [MCP Protocol Specification](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
 - [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
 - [MCP GitHub Repository](https://github.com/modelcontextprotocol)
+
+---
+
+## 📝 License
+
+[MIT](LICENSE)
