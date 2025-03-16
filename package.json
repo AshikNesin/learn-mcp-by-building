@@ -2,11 +2,20 @@
   "name": "learn-mcp-by-building",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "server": "node src/mcp-server.js",
+    "server:tools": "node src/mcp-server-with-tools.js",
+    "client": "node src/mcp-test-client.js",
+    "client:tools": "node src/mcp-test-tool-client.js",
+    "debug": "npx @modelcontextprotocol/inspector node src/mcp-server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "zod": "^3.24.2"
+  }
 }
