@@ -1,45 +1,58 @@
 # Learn Model Context Protocol by Building
 
-This repository contains a simple MCP (Model Context Protocol) server implementation built from scratch in Node.js. The purpose is to learn how the MCP protocol works internally without relying on the official SDK (but heavily inspired by it 😅).
+This repository contains a simple MCP (Model Context Protocol) server implementation built from scratch in Node.js. The purpose is to learn how the MCP protocol works internally without relying on the official SDK.
 
-## What is Model Context Protocol (MCP)?
+---
 
-The Model Context Protocol (MCP) is an open protocol that enables AI assistants to interact with external tools and data sources. It provides a standardized way for AI assistants to:
+## 🔍 What is Model Context Protocol (MCP)?
+
+The Model Context Protocol (MCP) is an open protocol that enables AI assistants to interact with external tools and data sources.
+
+<details>
+<summary><b>Key Features</b></summary>
 
 - List available tools and their capabilities
 - Call tools with parameters
 - Handle errors in a consistent way
 - Process tool results in a standardized format
+</details>
 
-For a detailed overview of the protocol and its implementation, see [MCP Protocol Study](notes/mcp.md).
+📚 For a detailed overview, see [MCP Notes](notes/mcp.md).
 
-## Features
+---
 
-This implementation includes:
+## ✨ Features
 
-- A fully compliant MCP server with JSON-RPC 2.0 message handling
-- Protocol initialization and capability negotiation
-- Tools registration and invocation with JSON Schema validation
-- Proper error handling according to MCP spec
-- STDIO transport support
-- Comprehensive test client for verification
+| Category | Features |
+|----------|----------|
+| **Protocol** | ✅ JSON-RPC 2.0 message handling<br>✅ Protocol initialization<br>✅ Capability negotiation |
+| **Tools** | ✅ Tool registration with JSON Schema<br>✅ Tool invocation and validation<br>✅ Standardized error handling |
+| **Transport** | ✅ STDIO support<br>🚧 SSE Support |
+| **Testing** | ✅ Test clients |
 
-## Available Implementations
+---
 
-This repository includes:
+## 📁 Project Structure
 
-1. **src/lib/mcp-server.js**: Core MCP server implementation
-2. **src/mcp-server-with-tools.js**: Extended server with calculator tool
-3. **src/test/mcp-test-client.js**: Test client for verification
-4. **src/test/mcp-test-tool-client.js**: Tool-specific test client
+```
+src/
+├── lib/
+│   └── mcp-server.js         # Core MCP implementation
+├── mcp-server-with-tools.js  # Server with calculator tool
+└── test/
+    ├── mcp-test-client.js    # Full test client
+    └── mcp-test-tool-client.js # Tool-specific tests
+```
 
-## Getting Started
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js v18+ (for ESM support)
 
-### Installation
+### Quick Start
 
 ```bash
 # Clone the repository
@@ -48,66 +61,75 @@ cd learn-mcp-by-building
 
 # Install dependencies
 pnpm install
-```
 
-### Usage
-
-#### Running the Test Client
-
-```bash
+# Run the test client
 node src/test/mcp-test-client.js
-```
 
-This will start the MCP server and run a series of test requests to verify functionality.
-
-#### Running the Server
-
-```bash
+# Start the server
 node src/mcp-server-with-tools.js
 ```
 
-This will start the MCP server, ready to accept tool requests.
+---
 
-## Implementation Details
+## 🔧 Implementation Details
 
 ### Protocol Support
 
-The implementation supports:
+- **Version**: `2024-11-05`
+- **Transport**: JSON-RPC 2.0 over STDIO
+- **Methods**:
+  - `initialize` - Capability negotiation
+  - `tools/list` - Tool discovery
+  - `tools/call` - Tool execution
 
-- Protocol version: `2024-11-05`
-- JSON-RPC 2.0 over STDIO transport
-- Standard MCP methods:
-  - `initialize` - Protocol initialization and capability negotiation
-  - `tools/list` - Tool discovery with JSON Schema
-  - `tools/call` - Tool invocation and execution
+### 🧮 Calculator Tool
 
-### Included Tools
+<table>
+<tr>
+<td>
 
-1. **calculator**
-   - Description: Performs basic math operations
-   - Operations: add, subtract, multiply, divide
-   - Parameters:
-     - `operation` (string): Type of operation to perform
-     - `a` (number): First operand
-     - `b` (number): Second operand
-   - Error Handling:
-     - Division by zero
-     - Invalid operations
-     - Type validation
-     - Missing parameters
+**Operations**
+- ➕ add
+- ➖ subtract
+- ✖️ multiply
+- ➗ divide
 
-## Protocol Features
+</td>
+<td>
 
-The implementation demonstrates key MCP features:
+**Parameters**
+- `operation` - Operation type
+- `a` - First operand
+- `b` - Second operand
 
-- Capability negotiation during initialization
-- Tool list change notifications
-- Standardized error handling
-- JSON Schema validation
-- Structured tool results
-- Transport layer abstraction
+</td>
+<td>
 
-## External Resources
+**Error Handling**
+- Division by zero
+- Invalid operations
+- Type validation
+- Missing parameters
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🛠️ Protocol Features
+
+- ✅ Capability negotiation
+- ✅ Tool list change notifications
+- ✅ Standardized error handling
+- ✅ JSON Schema validation
+- ✅ Structured tool results
+- ✅ Transport layer abstraction
+
+---
+
+## 📚 External Resources
 
 - [MCP Protocol Specification](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
 - [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
+- [MCP GitHub Repository](https://github.com/modelcontextprotocol)
