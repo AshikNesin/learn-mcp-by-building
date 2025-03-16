@@ -244,7 +244,7 @@
   <script>
     class McpHttpSseClient {
       constructor(options = {}) {
-        this.serverUrl = options.serverUrl || 'http://localhost:5000';
+        this.serverUrl = options.serverUrl || window.location.origin;
         this.endpoint = options.endpoint || '/sse';
         this.sessionId = options.sessionId || crypto.randomUUID();
         this.eventSource = null;
