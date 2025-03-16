@@ -63,7 +63,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     })
     .option('host', {
       type: 'string',
-      default: 'localhost',
+      default: '0.0.0.0',
       description: 'Host to bind to'
     })
     .option('path', {
